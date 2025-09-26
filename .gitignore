@@ -1,0 +1,24 @@
+# Ignore Docker Compose override files
+docker-compose.override.yml
+docker-compose.*.yml
+
+# Ignore environment variable files
+*/.env
+*/local.env
+
+# Ignore Docker volumes and logs
+volumes/
+logs/
+*.log
+
+# Ignore Docker build artifacts
+**/Dockerfile.*
+**/docker-compose*.bak
+
+# Ignore local database files
+*.sqlite3
+*.db
+
+# Ignore any temporary files
+*.tmp
+*.swp

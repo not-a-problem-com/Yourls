@@ -1,0 +1,82 @@
+name: yourls
+
+services:
+
+  # Net Services
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - yourls
+    profiles: [cloudflared]
+    networks:
+      - exit
+      - internal
+
+  # Core Services
+  yourls:
+    build:
+      context: ./images
+      dockerfile: Yourls_Dockerfile
+    restart: unless-stopped
+    environment:
+      YOURLS_SITE: ${DOMAIN:?DOMAIN environment variable is required}
+      YOURLS_USER: ${YOURLS_USER:-admin}
+      YOURLS_PASS: ${YOURLS_PASS:?YOURLS_PASS environment variable is required}
+      YOURLS_DB_HOST: db:3306
+      YOURLS_DB_USER: ${DATABASE_USER:-yourls}
+      YOURLS_DB_PASS: ${DATABASE_PASSWORD:?DATABASE_PASSWORD environment variable is required}
+      YOURLS_DB_NAME: ${DATABASE_NAME:-yourls}
+      YOURLS_DB_PREFIX: ${DATABASE_PREFIX:-yourls_}
+      YOURLS_UNIQUE_URLS: ${YOURLS_UNIQUE_URLS:-true}
+      YOURLS_PRIVATE: ${YOURLS_PRIVATE:-true}
+    volumes:
+      - yourls_data:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - exit
+      - internal
+
+  db:
+    image: mysql:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD:?DATABASE_ROOT_PASSWORD environment variable is required}
+      MYSQL_USER: ${DATABASE_USER:-yourls}
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD:?DATABASE_PASSWORD environment variable is required}
+      MYSQL_DATABASE: ${DATABASE_NAME:-yourls}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: mysqladmin ping -p$$MYSQL_ROOT_PASSWORD -h 127.0.0.1
+      interval: 1s
+      start_period: 30s
+      start_interval: 10s
+      retries: 120
+    networks:
+      - internal
+
+volumes:
+  yourls_data:
+    name: ${COMPOSE_PROJECT_NAME}_YOURLS_DATA_VOL
+    labels:
+      com.example.description: "(Yourls) Application data volume"
+  db_data:
+    name: ${COMPOSE_PROJECT_NAME}_DB_DATA_VOL
+    labels:
+      com.example.description: "(Yourls) Database volume"
+
+networks:
+  exit:
+    name: ${COMPOSE_PROJECT_NAME}_EXIT_NET
+    attachable: false
+    driver: bridge
+  internal:
+    name: ${COMPOSE_PROJECT_NAME}_INTERNAL_NET
+    attachable: false
+    internal: true
